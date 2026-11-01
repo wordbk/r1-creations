@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=240, initial-scale=1.0, user-scalable=no">
+<title>Spades</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..100,600..900&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* R1 screen: fixed 240×282. Rows: score 20 · table 132 · coach 40 · hand 72 · keys 18 */
+:root{
+  --bg:#0F1311; --felt:#17302A; --felt-2:#1E3B33; --ink:#EDEFEA; --muted:#8FA39A;
+  --orange:#FE5000; --card:#F7F6F1; --card-ink:#14161A; --card-red:#C8261C; --gold:#F3D36B;
+  --good:#5CC48A; --bad:#FF7A6E;
+  --display:"Archivo","Arial Narrow",Roboto,sans-serif; --mono:"DM Mono",ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{width:240px;height:282px;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--display);user-select:none}
+#app{position:relative;width:240px;height:282px}
+
+.top{height:20px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;font-family:var(--mono);font-size:10px;color:var(--muted);border-bottom:1px solid #26302B}
+.top b{color:var(--ink);font-weight:500}
+.table{position:absolute;top:20px;left:0;width:240px;height:132px;background:radial-gradient(ellipse at 50% 50%,var(--felt-2),var(--felt) 75%)}
+.slot{position:absolute;width:28px;height:38px;border:1px dashed rgba(255,255,255,.16);border-radius:4px}
+.lab{position:absolute;font-size:10px;line-height:1.15;color:var(--muted);font-family:var(--mono)}
+.lab .nm{display:block;font-family:var(--display);font-stretch:75%;font-weight:800;font-size:12px;letter-spacing:.03em;color:var(--ink);text-transform:uppercase}
+.lab.turn .nm{color:var(--orange)}
+.mid{position:absolute;left:96px;top:56px;width:48px;text-align:center;font-family:var(--mono);font-size:8px;color:var(--muted);line-height:1.2}
+
+.c{position:absolute;width:28px;height:38px;background:var(--card);color:var(--card-ink);border-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,.4);font-weight:800;font-stretch:75%}
+.c.red{color:var(--card-red)}
+.c .r{position:absolute;left:3px;top:2px;font-size:13px;line-height:.95}
+.c .s{position:absolute;right:3px;bottom:1px;font-size:15px;line-height:1}
+.c .r.ten{letter-spacing:-1.5px;margin-left:-1px}
+.c.jk .r{font-size:8px;letter-spacing:.02em}
+.c.win{box-shadow:0 0 0 2px var(--gold)}
+
+.coach{position:absolute;top:152px;left:0;width:240px;height:40px;padding:4px 8px;font-size:11px;line-height:1.25;font-stretch:90%;font-weight:600;color:var(--ink);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;border-top:1px solid #26302B}
+.coach i{font-style:normal;color:var(--orange)}
+
+.hand{position:absolute;top:192px;left:0;width:240px;height:72px}
+.hand .c{width:32px;height:46px;top:20px;transition:top .12s}
+.hand .c .r{font-size:14px}.hand .c .s{font-size:12px;left:4px;right:auto;top:17px;bottom:auto}
+.hand .c.jk .r{font-size:8px}
+.hand .c.dim{filter:brightness(.55)}
+.hand .c.sel{top:6px;box-shadow:0 0 0 2px var(--orange),0 2px 6px rgba(0,0,0,.5)}
+
+.keys{position:absolute;bottom:0;left:0;width:240px;height:18px;display:flex;justify-content:space-between;align-items:center;padding:0 8px;font-family:var(--mono);font-size:9px;color:var(--muted);border-top:1px solid #26302B}
+.keys b{color:var(--orange);font-weight:500}
+
+/* overlay panel covers table + coach */
+.panel{position:absolute;top:20px;left:0;width:240px;height:172px;background:var(--bg);padding:8px;display:flex;flex-direction:column;gap:5px}
+.panel[hidden],.full[hidden]{display:none}
+.ph{display:flex;justify-content:space-between;align-items:baseline}
+.ph h2{font-stretch:70%;font-weight:900;font-size:18px;text-transform:uppercase;letter-spacing:.02em}
+.ph span{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.cnt{font-family:var(--mono);font-size:9.5px;line-height:1.35;color:var(--muted)}
+.cnt div{display:flex;justify-content:space-between;gap:6px}
+.cnt .tot{color:var(--ink)}
+.note{font-size:10.5px;line-height:1.25;font-weight:600;font-stretch:90%;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.dial{margin-top:auto;display:flex;align-items:center;justify-content:center;gap:14px;font-family:var(--mono)}
+.dial .side{font-size:14px;color:var(--muted);width:30px;text-align:center}
+.dial .big{font-family:var(--display);font-stretch:70%;font-weight:900;font-size:40px;line-height:1;min-width:64px;text-align:center}
+.dial .big.rec{color:var(--orange)}
+.dial small{display:block;font-family:var(--mono);font-size:8px;color:var(--orange);text-align:center;height:10px}
+.res{font-family:var(--mono);font-size:10px;line-height:1.4}
+.res .p{color:var(--good)}.res .m{color:var(--bad)}.res b{color:var(--ink);font-weight:500}
+
+/* full-screen pages: menu, rules */
+.full{position:absolute;inset:0;background:var(--bg);padding:14px 12px 22px;display:flex;flex-direction:column}
+.logo{font-stretch:62%;font-weight:900;font-size:44px;line-height:.85;text-transform:uppercase}
+.logo span{color:var(--orange)}
+.menu{margin-top:auto;display:flex;flex-direction:column;gap:4px}
+.menu div{font-stretch:80%;font-weight:800;font-size:17px;text-transform:uppercase;padding:5px 8px;border-radius:6px;display:flex;justify-content:space-between;color:var(--muted)}
+.menu div.on{background:var(--orange);color:#120700}
+.menu div em{font-style:normal;font-family:var(--mono);font-size:11px;font-weight:500;text-transform:none;align-self:center}
+.rules{overflow:hidden;flex:1;position:relative}
+.rules .in{position:absolute;left:0;right:0;top:0;transition:transform .12s}
+.rules h3{font-stretch:75%;font-weight:900;font-size:13px;text-transform:uppercase;color:var(--orange);margin:8px 0 2px}
+.rules p{font-size:11px;line-height:1.3;font-weight:600;font-stretch:90%;margin-bottom:4px}
+.full .keys{position:absolute}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top"><span>US <b id="s0">0</b> <span id="b0"></span></span><span id="hn">Hand 1</span><span>THEM <b id="s1">0</b> <span id="b1"></span></span></div>
+  <div class="table" id="table">
+    <div class="slot" style="left:106px;top:3px"></div><div class="slot" style="left:66px;top:46px"></div>
+    <div class="slot" style="left:146px;top:46px"></div><div class="slot" style="left:106px;top:90px"></div>
+    <div class="lab" id="l2" style="left:8px;top:4px;width:94px;text-align:right"></div>
+    <div class="lab" id="l1" style="left:6px;top:50px;width:58px"></div>
+    <div class="lab" id="l3" style="right:6px;top:50px;width:58px;text-align:right"></div>
+    <div class="lab" id="l0" style="left:8px;top:92px;width:94px;text-align:right"></div>
+    <div class="mid" id="mid"></div>
+    <div id="trick"></div>
+  </div>
+  <div class="coach" id="coach"></div>
+  <div class="hand" id="hand"></div>
+  <div class="keys" id="keys"></div>
+
+  <div class="panel" id="bidp" hidden>
+    <div class="ph"><h2>Your bid</h2><span id="bpos"></span></div>
+    <div class="cnt" id="bcnt"></div>
+    <div class="note" id="bnote"></div>
+    <div class="dial"><span class="side" id="bdn"></span><div><div class="big" id="bnum">2</div><small id="brec"></small></div><span class="side" id="bup"></span></div>
+  </div>
+
+  <div class="panel" id="endp" hidden>
+    <div class="ph"><h2 id="etitle">Hand scored</h2><span id="ehand"></span></div>
+    <div class="res" id="eres"></div>
+  </div>
+
+  <div class="full" id="menu">
+    <div class="logo">Back to<br>Spades <span>♠</span></div>
+    <div style="font-size:11px;font-weight:600;color:var(--muted);margin-top:6px">You + a bot partner vs two bots. Game to 250.</div>
+    <div class="menu" id="mlist"></div>
+    <div class="keys"><span>wheel: move</span><span><b>side</b>: select</span></div>
+  </div>
+
+  <div class="full" id="rulesp" hidden>
+    <div class="rules"><div class="in" id="rin">
+      <h3>Bid</h3><p>Say how many tricks you'll take. Partner's bid adds to yours for one team number.</p>
+      <h3>Count tricks</h3><p>Aces 1. Kings with another card ¾. Each spade past your third 1. Void with a spare spade 1.</p>
+      <h3>Play</h3><p>Follow suit if you can. Out of the suit? Trump with a spade or throw anything. No leading spades until one's been played.</p>
+      <h3 class="jk-on">Jokers</h3><p class="jk-on">Big Joker beats everything, then Little Joker, then A♠. 2♥ and 2♦ come out.</p>
+      <h3>Score</h3><p>Make it: 10 per trick bid, +1 per extra (a bag). Miss it: −10 per trick bid. 10 bags: −100. Nil: ±100.</p>
+      <h3>Habits</h3><p>2nd hand low. 3rd hand high. Don't trump your partner. Cash aces early. Partner nil? Bid one more and play high.</p>
+    </div></div>
+    <div class="keys"><span>wheel: scroll</span><span><b>side</b>: back</span></div>
+  </div>
+</div>
+<script>
+
+const SUITS=['S','H','D','C'], SYM={S:'♠',H:'♥',D:'♦',C:'♣'}, NAME=['You','West','Partner','East'];
+// Jokers live in the spade suit: Little Joker = 15, Big Joker = 16. 2♥ and 2♦ come out to keep 52 cards.
+const RN={11:'J',12:'Q',13:'K',14:'A',15:'LJ',16:'BJ'}; const rn=r=>RN[r]||String(r);
+const isJ=c=>c.r>=15;
+const cs=c=>c.r===16?'Big Joker':c.r===15?'Little Joker':rn(c.r)+SYM[c.s];
+const ORDER={S:0,H:1,C:2,D:3};
+let JOKERS=false; try{JOKERS=localStorage.getItem('spades-jokers')==='1'}catch(e){}
+const deck=()=>{const d=[];for(const s of SUITS)for(let r=2;r<=14;r++){if(JOKERS&&r===2&&(s==='H'||s==='D'))continue;d.push({s,r})}
+  if(JOKERS)d.push({s:'S',r:15},{s:'S',r:16});return d};
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const sortHand=h=>h.sort((a,b)=>ORDER[a.s]-ORDER[b.s]||b.r-a.r);
+const deal=()=>{const d=shuffle(deck());return [0,1,2,3].map(i=>sortHand(d.slice(i*13,i*13+13)))};
+const fmt=n=>Number.isInteger(n)?String(n):n.toFixed(2).replace(/0$/,'');
+
+function evalHand(h){
+  const by={S:[],H:[],D:[],C:[]}; h.forEach(c=>by[c.s].push(c.r));
+  const lines=[]; let total=0;
+  for(const s of ['H','D','C']){
+    const c=by[s], n=c.length; let v=0; const why=[];
+    if(c.includes(14)){v+=1;why.push('A')}
+    if(c.includes(13)&&n>=2){ if(n<=5){const k=c.includes(14)?1:.75;v+=k;why.push('K')} else {v+=.5;why.push('K in a long suit')} }
+    if(c.includes(12)&&n>=3&&n<=4&&(c.includes(14)||c.includes(13))){v+=.5;why.push('Q')}
+    if(v){lines.push([SYM[s]+' '+why.join(', '),v]);total+=v}
+  }
+  const sp=by.S, ns=sp.length; let sv=0; const sw=[];
+  // Top trump in order: Big Joker, Little Joker, A, K. Each needs one more spade beside it than the one above.
+  (JOKERS?[[16,'Big Joker'],[15,'Little Joker'],[14,'A'],[13,'K']]:[[14,'A'],[13,'K'],[12,'Q']]).forEach(([r,l],i)=>{if(sp.includes(r)&&ns>=i+1){sv++;sw.push(l)}});
+  if(sv){lines.push(['♠ '+sw.join(', '),sv]);total+=sv}
+  const extra=Math.max(0,ns-3-Math.max(0,sv-3));
+  if(extra){lines.push([`♠ length: ${ns} spades, ${extra} past three`,extra]);total+=extra}
+  let spare=Math.max(0,ns-sv-extra);
+  for(const s of ['H','D','C']){
+    if(spare<=0)break; const n=by[s].length;
+    if(n===0){lines.push([`Void in ${SYM[s]}, spade to trump`,1]);total+=1;spare--}
+    else if(n===1&&by[s][0]!==14){lines.push([`Singleton ${SYM[s]}, spade to trump`,.5]);total+=.5;spare--}
+  }
+  if(!lines.length)lines.push(['No sure tricks',0]);
+  return {total,lines,by};
+}
+function canNil(h,e){
+  return !h.some(c=>c.r===14) && !e.by.S.some(r=>r>=12) && e.by.S.length<=3 && e.total<1.5;
+}
+function bidOrder(dealer){return [1,2,3,4].map(k=>(dealer+k)%4)}
+function bidAdvice(h,prior,me){
+  const e=evalHand(h); let rec=Math.max(1,Math.round(e.total)); const partner=(me+2)%4; const notes=[];
+  const pb=prior.find(x=>x.p===partner);
+  if(pb){
+    if(pb.bid===0){rec=Math.min(13,rec+1);notes.push('Partner bid nil. Add one to your count. You will be winning tricks on purpose to protect them.')}
+    else{const team=pb.bid+rec;notes.push(`Partner bid ${pb.bid}. Your team contract would be ${team}.`);
+      if(team>=10)notes.push(`${team} of 13 is a lot. If one of your tricks is soft (a lone king, a queen), drop it.`);
+      else if(pb.bid<=2)notes.push('A low bid from partner means a thin hand. Count only what you are sure of.');}
+  } else notes.push('Partner bids after you. Bid your own hand and let them add theirs.');
+  if(prior.length===3){const sum=prior.reduce((a,x)=>a+x.bid,0)+rec;
+    if(sum>13)notes.push(`All four bids would total ${sum}. Over 13 means someone gets set. Trim if you are on the fence, then play to set them.`);
+    else if(sum<=10)notes.push(`All four bids would total ${sum}. That leaves ${13-sum} loose tricks, so bags will pile up. Take your full count.`);
+    else notes.push(`All four bids would total ${sum}. Tight table. Every trick matters.`);}
+  const nil=canNil(h,e); if(nil)notes.push('This hand is nil material: no aces, no high spades, few spades. +100 if you duck every trick.');
+  return {e,rec,notes,nil};
+}
+const legalCards=(h,trick,broken)=>{
+  if(!trick.length){const ns=h.filter(c=>c.s!=='S');return (!broken&&ns.length)?ns:h}
+  const f=h.filter(c=>c.s===trick[0].c.s); return f.length?f:h;
+};
+function winnerOf(T){let b=T[0];for(const e of T){if((e.c.s===b.c.s&&e.c.r>b.c.r)||(e.c.s==='S'&&b.c.s!=='S'))b=e}return b}
+const val=c=>c.r+(c.s==='S'?20:0);
+const low=a=>a.reduce((x,y)=>val(y)<val(x)?y:x), high=a=>a.reduce((x,y)=>val(y)>val(x)?y:x);
+
+function chooseCard(p){
+  const h=G.hands[p], legal=legalCards(h,G.trick,G.spadesBroken), T=G.trick, partner=(p+2)%4;
+  const myNil=G.bids[p]===0, coverNil=G.bids[partner]===0&&!myNil;
+  if(!T.length){
+    const nonS=legal.filter(c=>c.s!=='S');
+    if(myNil)return {card:low(legal),why:'You bid nil. Lead your lowest card so someone else has to win it.'};
+    if(coverNil&&nonS.length)return {card:high(nonS),why:'Partner is nil. Lead high so you win the trick and they can duck.'};
+    const ace=nonS.find(c=>c.r===14); if(ace)return {card:ace,why:`Cash the ${cs(ace)} now, before anyone runs out of ${SYM[ace.s]} and trumps it.`};
+    const sp=legal.filter(c=>c.s==='S');
+    if(G.spadesBroken&&sp.length>=4&&sp.some(c=>c.r>=13))return {card:high(sp),why:'You are long in spades with the top cards. Pull trump so nobody can ruff your winners.'};
+    if(nonS.length){const by={};nonS.forEach(c=>(by[c.s]=by[c.s]||[]).push(c));
+      const suit=Object.keys(by).sort((a,b)=>by[b].length-by[a].length)[0];
+      return {card:low(by[suit]),why:`Lead low from your longest suit (${SYM[suit]}). Keeps your high cards and gives partner a shot at it.`};}
+    return {card:low(legal),why:'Only spades left. Lead the low one and keep your big spades for later.'};
+  }
+  const led=T[0].c.s, win=winnerOf(T), pw=win.p===partner, last=T.length===3;
+  const beats=c=>win.c.s==='S'?(c.s==='S'&&c.r>win.c.r):((c.s===led&&c.r>win.c.r)||c.s==='S');
+  if(myNil){const safe=legal.filter(c=>!beats(c));
+    if(safe.length)return {card:high(safe),why:'You are nil. Play your highest card that still loses. Dump danger while it is safe.'};
+    return {card:low(legal),why:'Everything you hold wins this one. Play the lowest and hope someone tops it.'};}
+  const follow=legal.filter(c=>c.s===led);
+  if(follow.length){
+    const w=follow.filter(beats);
+    if(coverNil&&w.length)return {card:high(w),why:'Partner is nil. Win this so they can play under you.'};
+    if(pw&&(last||win.c.r>=13))return {card:low(follow),why:`Partner already has this trick with ${cs(win.c)}. Play low and keep your winners.`};
+    if(!w.length)return {card:low(follow),why:"You can't win it. Throw your lowest card in the suit."};
+    if(last)return {card:low(w),why:'You play last. Win with the cheapest card that does the job.'};
+    if(T.length===1){const a=w.find(c=>c.r===14);if(a)return {card:a,why:'Second hand, but you hold the ace. Take it.'};
+      return {card:low(follow),why:'Second hand low. Partner still plays after you, so save your big card.'};}
+    return {card:high(w),why:'Third hand high. Make the last player spend something big to beat you.'};
+  }
+  const trumps=legal.filter(c=>c.s==='S'&&beats(c)), nonS=legal.filter(c=>c.s!=='S');
+  if(pw&&!coverNil)return {card:low(nonS.length?nonS:legal),why:`You're out of ${SYM[led]} and partner is winning. Don't trump your partner. Throw something low.`};
+  if(trumps.length)return {card:low(trumps),why:`You're out of ${SYM[led]}. Trump with the lowest spade that wins.`};
+  return {card:low(nonS.length?nonS:legal),why:"You can't win this one. Get rid of your weakest card."};
+}
+
+
+/* ---------- R1 UI ---------- */
+const $=id=>document.getElementById(id);
+const short=n=>['You','West','Partner','East'][n];
+let G, mode='menu', menuIx=0, rulesY=0, bidPick=2, sel=0, hint=null;
+
+function cardHTML(c,cls,style){
+  if(isJ(c))return `<div class="c jk ${c.r===16?'red':''} ${cls||''}" style="${style||''}"><span class="r">${c.r===16?'BIG':'LIL'}<br>JKR</span><span class="s">★</span></div>`;
+  return `<div class="c ${c.s==='H'||c.s==='D'?'red':''} ${cls||''}" style="${style||''}"><span class="r${c.r===10?' ten':''}">${rn(c.r)}</span><span class="s">${SYM[c.s]}</span></div>`;
+}
+function setKeys(l,r){$('keys').innerHTML=`<span>${l}</span><span>${r}</span>`}
+function say(m){G.msg=m;hint=null}
+
+/* ---------- menu ---------- */
+function menuItems(){return [
+  ['Deal a new game',''],
+  ...(G&&!G.over&&G.handNo?[['Resume game','']]:[]),
+  ['Jokers',JOKERS?'Big + Little':'Off'],
+  ['Quick rules',''],
+]}
+function renderMenu(){
+  $('menu').hidden=false;$('rulesp').hidden=true;
+  $('mlist').innerHTML=menuItems().map((m,i)=>`<div class="${i===menuIx?'on':''}" data-i="${i}">${m[0]}<em>${m[1]}</em></div>`).join('');
+}
+function menuSelect(){
+  const label=menuItems()[menuIx][0];
+  if(label==='Deal a new game'){newGame()}
+  else if(label==='Resume game'){mode=G.phase;$('menu').hidden=true;render()}
+  else if(label==='Jokers'){JOKERS=!JOKERS;try{localStorage.setItem('spades-jokers',JOKERS?'1':'0')}catch(e){};G=null;menuIx=0;renderMenu()}
+  else {mode='rules';rulesY=0;$('menu').hidden=true;$('rulesp').hidden=false;
+    document.querySelectorAll('.jk-on').forEach(e=>e.hidden=!JOKERS);scrollRules(0)}
+}
+function scrollRules(d){
+  const box=$('rin').parentElement, max=Math.max(0,$('rin').offsetHeight-box.offsetHeight);
+  rulesY=Math.max(0,Math.min(max,rulesY+d));$('rin').style.transform=`translateY(${-rulesY}px)`;
+}
+
+/* ---------- game flow ---------- */
+function newGame(){G={dealer:3,score:[0,0],bags:[0,0],handNo:0};$('menu').hidden=true;newHand()}
+function newHand(){
+  G.handNo++;Object.assign(G,{hands:deal(),bids:[null,null,null,null],tricks:[0,0,0,0],trick:[],spadesBroken:false,phase:'bid',busy:false,lastWin:null,over:false});
+  G.order=bidOrder(G.dealer);G.turn=G.order[0];G.leader=G.order[0];
+  say(`${short(G.dealer)} dealt. ${G.turn===0?'You bid first.':short(G.turn)+' bids first.'}`);
+  mode='bid';render();step();
+}
+function priorBids(){return G.order.filter(p=>G.bids[p]!==null).map(p=>({p,bid:G.bids[p]}))}
+function placeBid(p,b){
+  G.bids[p]=b;say(`${short(p)} bid ${b===0?'nil':b}.`);
+  const i=G.order.indexOf(p);
+  if(i===3){G.phase='play';mode='play';G.turn=G.leader;
+    const us=G.bids[0]+G.bids[2],them=G.bids[1]+G.bids[3];
+    say(`Bids in. Us ${us}, them ${them}. ${G.leader===0?'You lead.':short(G.leader)+' leads.'}`);}
+  else G.turn=G.order[i+1];
+  if(G.phase==='play'&&G.turn===0)sel=0;
+  render();step();
+}
+function step(){
+  if(G.phase==='bid'&&G.turn!==0){setTimeout(()=>placeBid(G.turn,bidAdvice(G.hands[G.turn],priorBids(),G.turn).rec),600)}
+  else if(G.phase==='bid'&&G.turn===0){bidPick=bidAdvice(G.hands[0],priorBids(),0).rec;render()}
+  else if(G.phase==='play'&&G.turn!==0&&!G.busy){G.busy=true;setTimeout(()=>{G.busy=false;playCard(G.turn,chooseCard(G.turn).card)},650)}
+}
+function playCard(p,card){
+  const h=G.hands[p];h.splice(h.indexOf(card),1);
+  if(card.s==='S'&&!G.spadesBroken&&G.trick.length&&G.trick[0].c.s!=='S')say(`${short(p)} trumped. Spades broken.`);
+  if(card.s==='S')G.spadesBroken=true;
+  G.trick.push({p,c:card});hint=null;
+  if(G.trick.length===4){
+    const w=winnerOf(G.trick);G.lastWin=w;G.busy=true;render();
+    setTimeout(()=>{
+      G.tricks[w.p]++;say(`${short(w.p)} took it with ${cs(w.c)}.`);
+      G.trick=[];G.lastWin=null;G.leader=G.turn=w.p;G.busy=false;sel=0;
+      if(!G.hands[0].length)endHand();else{render();step()}
+    },1000);
+    return;
+  }
+  G.turn=(p+1)%4;if(G.turn===0)sel=0;render();step();
+}
+function endHand(){
+  const r=[scoreTeam(0),scoreTeam(1)];
+  G.phase='end';mode='end';
+  G.over=(G.score[0]>=250||G.score[1]>=250)&&G.score[0]!==G.score[1];
+  $('etitle').textContent=G.over?(G.score[0]>G.score[1]?'You win':'They win'):'Hand scored';
+  $('ehand').textContent=`Hand ${G.handNo}`;
+  $('eres').innerHTML=['Us','Them'].map((n,t)=>`<div><b>${n} ${r[t].pts>=0?'+':''}${r[t].pts}</b></div>`+r[t].out.map(([c,s])=>`<div class="${c==='plus'?'p':'m'}">${s}</div>`).join('')).join('');
+  G.dealer=(G.dealer+1)%4;
+  render();
+}
+function scoreTeam(t){
+  const ps=[t,t+2],out=[];let pts=0,bags=0;
+  const contract=ps.reduce((a,p)=>a+(G.bids[p]||0),0),taken=ps.reduce((a,p)=>a+G.tricks[p],0);
+  ps.forEach(p=>{if(G.bids[p]===0){if(G.tricks[p]===0){pts+=100;out.push(['plus',`${short(p)} nil made +100`])}else{pts-=100;out.push(['minus',`${short(p)} nil busted −100`])}}});
+  if(contract>0){
+    if(taken>=contract){bags=taken-contract;pts+=contract*10+bags;out.push(['plus',`Bid ${contract}, took ${taken}: +${contract*10+bags}${bags?` (${bags} bag${bags>1?'s':''})`:''}`])}
+    else{pts-=contract*10;out.push(['minus',`Bid ${contract}, took ${taken}: set −${contract*10}`])}
+  } else if(taken>0){bags=taken;pts+=bags}
+  G.bags[t]+=bags;
+  if(G.bags[t]>=10){G.bags[t]-=10;pts-=100;out.push(['minus','10 bags −100'])}
+  G.score[t]+=pts;return {pts,out};
+}
+
+/* ---------- render ---------- */
+function myLegal(){return (G.phase==='play'&&G.turn===0&&!G.busy)?legalCards(G.hands[0],G.trick,G.spadesBroken):[]}
+function render(){
+  if(mode==='menu'){renderMenu();return}
+  if(mode==='rules')return;
+  $('s0').textContent=G.score[0];$('s1').textContent=G.score[1];
+  $('b0').textContent=G.bags[0]?`·${G.bags[0]}b`:'';$('b1').textContent=G.bags[1]?`·${G.bags[1]}b`:'';
+  $('hn').textContent=`HAND ${G.handNo}`;
+  for(let p=0;p<4;p++){
+    const b=G.bids[p],l=$('l'+p);
+    l.className='lab'+(G.turn===p&&G.phase!=='end'?' turn':'');
+    l.innerHTML=`<span class="nm">${short(p)}</span>${b===null?'bid ?':(b===0?'nil':'bid '+b)} · ${G.tricks[p]}`;
+  }
+  const pos=[[106,90],[66,46],[106,3],[146,46]];
+  $('trick').innerHTML=G.trick.map(e=>cardHTML(e.c,G.lastWin&&G.lastWin.p===e.p?'win':'',`left:${pos[e.p][0]}px;top:${pos[e.p][1]}px`)).join('');
+  $('mid').innerHTML=G.phase==='play'?(G.spadesBroken?'♠<br>broken':'♠ not<br>broken'):'';
+  // hand
+  const h=G.hands[0],legal=myLegal(),n=h.length;
+  const step=n>1?Math.min(36,(232-32)/(n-1)):0, x0=Math.round((240-(32+step*(n-1)))/2);
+  if(legal.length&&!legal.includes(h[sel]))sel=h.indexOf(legal[0]);
+  $('hand').innerHTML=h.map((c,i)=>cardHTML(c,(legal.length?(legal.includes(c)?'':'dim'):'')+(legal.length&&i===sel?' sel':''),`left:${x0+i*step}px;z-index:${i}`)).join('');
+  [...$('hand').children].forEach((el,i)=>el.onclick=()=>tapCard(i));
+  // coach
+  if(hint)$('coach').innerHTML=`<i>Coach:</i> ${hint}`;
+  else if(legal.length)$('coach').innerHTML=`<i>Your turn.</i> ${G.msg}`;
+  else $('coach').textContent=G.msg||'';
+  // panels
+  $('bidp').hidden=!(G.phase==='bid'&&G.turn===0);
+  if(!$('bidp').hidden)renderBid();
+  $('endp').hidden=G.phase!=='end';
+  if(G.phase==='end')setKeys('hold: menu',`<b>side</b>: ${G.over?'new game':'next hand'}`);
+  else if(G.phase==='bid'&&G.turn===0)setKeys('wheel: bid','<b>side</b>: lock it in');
+  else if(legal.length)setKeys('wheel: card · hold: hint','<b>side</b>: play');
+  else setKeys('','waiting…');
+}
+function renderBid(){
+  const a=bidAdvice(G.hands[0],priorBids(),0);
+  $('bpos').textContent=`bidding ${['1st','2nd','3rd','last'][G.order.indexOf(0)]}`;
+  const lines=a.e.lines.slice(0,4);
+  $('bcnt').innerHTML=lines.map(([l,v])=>`<div><span>${l.replace(', spade to trump','')}</span><span>${fmt(v)}</span></div>`).join('')+`<div class="tot"><span>Coach count</span><span>${fmt(a.e.total)} → ${a.nil?'nil or '+a.rec:a.rec}</span></div>`;
+  $('bnote').textContent=a.notes[a.notes.length-1];
+  $('bnum').textContent=bidPick===0?'NIL':bidPick;
+  const rec=bidPick===a.rec||(bidPick===0&&a.nil);
+  $('bnum').className='big'+(rec?' rec':'');
+  $('brec').textContent=rec?'coach pick':'';
+  $('bdn').textContent=bidPick>0?(bidPick-1===0?'nil':bidPick-1):'';
+  $('bup').textContent=bidPick<13?bidPick+1:'';
+}
+
+/* ---------- input ---------- */
+function moveSel(d){
+  const legal=myLegal();if(!legal.length)return;
+  const idx=legal.map(c=>G.hands[0].indexOf(c));let k=idx.indexOf(sel);
+  k=Math.max(0,Math.min(idx.length-1,(k<0?0:k)+d));sel=idx[k];hint=null;render();
+}
+function tapCard(i){
+  const legal=myLegal(),c=G.hands[0][i];
+  if(!legal.length)return;
+  if(!legal.includes(c)){G.msg=G.trick.length?`You still have ${SYM[G.trick[0].c.s]}. Follow suit.`:"Spades aren't broken. Lead another suit.";hint=null;render();return}
+  if(sel===i)playCard(0,c);else{sel=i;hint=null;render()}
+}
+function onWheel(d){
+  if(mode==='menu'){const n=menuItems().length;menuIx=(menuIx+d+n)%n;renderMenu()}
+  else if(mode==='rules')scrollRules(d*40);
+  else if(G.phase==='bid'&&G.turn===0){bidPick=Math.max(0,Math.min(13,bidPick-d));renderBid()}
+  else if(G.phase==='play')moveSel(d);
+}
+let lastSide=0;
+function onSide(){
+  const now=Date.now();if(now-lastSide<300)return;lastSide=now;
+  if(mode==='menu')menuSelect();
+  else if(mode==='rules'){mode='menu';renderMenu()}
+  else if(G.phase==='end'){G.over?newGame():newHand()}
+  else if(G.phase==='bid'&&G.turn===0)placeBid(0,bidPick);
+  else{const legal=myLegal();if(legal.length)playCard(0,G.hands[0][sel])}
+}
+function onHold(){
+  if(mode==='menu'||mode==='rules')return;
+  if(G.phase==='end'){mode='menu';menuIx=0;renderMenu();return}
+  if(myLegal().length){const r=chooseCard(0);hint=`${cs(r.card)}. ${r.why}`;sel=G.hands[0].indexOf(r.card);render()}
+  else if(G.phase==='bid'&&G.turn===0){mode='menu';menuIx=0;renderMenu()}
+}
+window.addEventListener('scrollUp',()=>onWheel(-1));
+window.addEventListener('scrollDown',()=>onWheel(1));
+window.addEventListener('sideClick',onSide);
+window.addEventListener('longPressStart',onHold);
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp'||e.key==='ArrowLeft')onWheel(-1);
+  else if(e.key==='ArrowDown'||e.key==='ArrowRight')onWheel(1);
+  else if(e.key==='Enter'||e.key==='Escape')onSide();
+  else if(e.key===' '&&!e.repeat)onHold();
+});
+$('mlist').addEventListener('click',e=>{const d=e.target.closest('[data-i]');if(d){menuIx=+d.dataset.i;menuSelect()}});
+$('rulesp').addEventListener('click',()=>{mode='menu';renderMenu()});
+$('endp').addEventListener('click',onSide);
+$('bidp').addEventListener('click',e=>{if(e.target.id==='bup')onWheel(-1);else if(e.target.id==='bdn')onWheel(1);else if(e.target.closest('.dial'))onSide()});
+
+renderMenu();
+</script>
+</body>
+</html>
