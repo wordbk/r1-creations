@@ -9,7 +9,7 @@ Spades with a bot partner and a coach. Jokers on or off from the menu.
 - **Scroll wheel:** pick a card, or set your bid
 - **Side button:** play the card, lock in the bid, deal the next hand
 - **Hold the side button:** coach's hint during play; back to the menu after a hand
-- **Tap:** works too. Tap a card to pick it, tap again to play
+- **Tap:** tap a card to pick it, then tap the table (or the card again) to play it
 
 **Install:** open `https://wordbk.github.io/r1-creations/spades/install.html` on a laptop. On the R1, open the creations card, tap "add via QR code," and scan.
 
